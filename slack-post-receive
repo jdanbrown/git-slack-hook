@@ -1,0 +1,94 @@
+#!/bin/bash
+
+# Read variables passed on by GIT
+read OLDREV NEWREV REFNAME
+
+# Find out basic variables
+GIT_EXEC=${GIT_EXEC:-`which git`}
+REPO=${REPO:-`basename $PWD`}
+
+# First or last commit might be 0, in case of branch/tag create or delete
+NULLREV="0000000000000000000000000000000000000000"
+[ "$NEWREV" = "$NULLREV" ] && USER_REV="$OLDREV" || USER_REV="$NEWREV"
+
+# User is either tag tagger or commit author
+USER=`$GIT_EXEC cat-file -p $USER_REV | grep -E '^tagger|^author' | sed -E 's/^(tagger|author) (.*) <.*$/\2/g'`
+
+# Record whether this is a tag or normal commit/branch
+if [ `$GIT_EXEC cat-file -t $USER_REV` != 'tag' ]; then
+  TAG_OR_BRANCH='branch'
+  BRANCH=${REFNAME#refs/heads/}
+else
+  TAG_OR_BRANCH='tag'
+  BRANCH=${REFNAME#refs/tags/}
+fi
+
+# Setup gitweb links
+if [ -n "$GITWEB" ]; then
+  USER_LINK="<a href=\"http://$GITWEB/?p=$REPO;a=search;s=$USER;st=author\">$USER</a>"
+  BRANCH_LINK="<a href=\"http://$GITWEB/?p=$REPO;a=shortlog;h=$REFNAME\">$BRANCH</a>"
+  REPO_LINK="<a href=\"http://$GITWEB/?p=$REPO;a=summary\">$REPO</a>"
+elif [ -n "$CGIT" ]; then
+  USER_LINK=$USER
+  BRANCH_LINK="<a href=\"http://$CGIT/$REPO/log/?h=$REFNAME\">$BRANCH</a>"
+  REPO_LINK="<a href=\"http://$CGIT/$REPO/\">$REPO</a>"
+else
+  USER_LINK=$USER
+  BRANCH_LINK=$BRANCH
+  REPO_LINK=$REPO
+fi
+
+# Construct gitorious links
+if [ -n "$GITORIOUS" ]; then
+  REPO_NO_GIT=`echo -e $REPO|sed "s/.git//g"`
+  USER_LINK="<a href=\"https://$GITORIOUS/~$USER\">$USER</a>"
+  REPO_LINK="<a href=\"https://$GITORIOUS/$GIT_PROJECT/$REPO_NO_GIT\">$REPO</a>"
+  BRANCH_LINK="<a href=\"https://$GITORIOUS/$GIT_PROJECT/$REPO_NO_GIT/commits/$BRANCH\">$BRANCH</a>"
+fi
+
+# Construct message
+if [ "$OLDREV" = "$NULLREV" ]; then
+  text="$USER_LINK created $TAG_OR_BRANCH $BRANCH_LINK of $REPO_LINK"
+  SLACK_COLOR="green"
+elif [ "$NEWREV" = "$NULLREV" ]; then
+  text="$USER_LINK deleted $TAG_OR_BRANCH $BRANCH of $REPO_LINK"
+  SLACK_COLOR="red"
+else
+  count=`$GIT_EXEC log --pretty=oneline $OLDREV..$NEWREV | wc -l | tr -d ' '`
+  if [ $count -eq 1 ]; then plural=''; else plural='s'; fi
+  pretext="[$REPO_LINK:$BRANCH_LINK] $count new commit$plural by $USER_LINK:"
+  if [ -n "$GITWEB" ]; then
+    h="<a href=\"http://$GITWEB/?p=$REPO;a=commitdiff;h=%H\">%h</a>"
+  elif [ -n "$CGIT" ]; then
+    h="<a href=\"http://$CGIT/$REPO/commit/?id=%H\">%h</a>"
+  elif [ -n "$GITORIOUS" ]; then
+    h="<a href=\"https://$GITORIOUS/$GIT_PROJECT/$REPO_NO_GIT/commit/%H\">%h</a>"
+  else
+    h="%h"
+  fi
+  text=`$GIT_EXEC log $OLDREV..$NEWREV --format="$h: %s - %an"`
+  if [ -n "$REDMINE" ]; then
+    text=`echo -e "$text" | sed "s/#\([0-9]*\)/#<a href=\"http:\/\/$REDMINE\/issues\/\1\">\1<\/a>/g"`
+  elif [ -n "$JIRA" ]; then
+    text=`echo -e "$text" | sed "s/\([A-Z]\{2,\}\-[0-9]\{1,\}\)/<a href=\"http:\/\/$JIRA\/browse\/\1\">\1<\/a>/g"`
+  fi
+fi
+
+text="$(echo -e "$text" | perl -p -e 's/\n/\\\\n/mg')" # WARNING: `...` doesn't capture newlines properly here; must use $(...)
+
+[ -n "$SLACK_ORG" -a -n "$SLACK_TOKEN" -a -n "$SLACK_COLOR" ] || {
+  echo "Missing env vars:"
+  echo "SLACK_ORG=$SLACK_ORG"
+  echo "SLACK_TOKEN=$SLACK_TOKEN"
+  echo "SLACK_COLOR=$SLACK_COLOR"
+  exit 1
+}
+
+payload="{\"text\": \"$text\", \"pretext\": \"$pretext\", \"color\": \"$SLACK_COLOR\"}"
+
+if [ -n "$DEBUG" ]; then
+  echo "POST https://$SLACK_ORG.slack.com/services/hooks/incoming-webhook?token=$SLACK_TOKEN"
+  echo -e "$payload"
+else
+  echo -e "$payload" | curl -d@- "https://$SLACK_ORG.slack.com/services/hooks/incoming-webhook?token=$SLACK_TOKEN" >/dev/null 2>&1
+fi
