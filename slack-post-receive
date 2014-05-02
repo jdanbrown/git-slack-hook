@@ -51,12 +51,10 @@ if [ "$OLDREV" = "$NULLREV" ]; then
   #pretext='' # Single line, no color
   pretext=' ' # Force line break, include color
   text="[$REPO_LINK] New $TAG_OR_BRANCH $BRANCH_LINK was pushed by $USER_LINK"
-  SLACK_COLOR="green"
 elif [ "$NEWREV" = "$NULLREV" ]; then
   #pretext='' # Single line, no color
   pretext=' ' # Force line break, include color
   text="[$REPO_LINK] The $TAG_OR_BRANCH $BRANCH_LINK was deleted by $USER_LINK"
-  SLACK_COLOR="red"
 else
   count=`$GIT_EXEC log --pretty=oneline $OLDREV..$NEWREV | wc -l | tr -d ' '`
   if [ $count -eq 1 ]; then plural=''; else plural='s'; fi
