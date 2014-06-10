@@ -50,15 +50,18 @@ fi
 if [ "$OLDREV" = "$NULLREV" ]; then
   pretext=''   # Single line, no color
   #pretext=' ' # Force line break, include color
-  text="[$REPO_LINK] New $TAG_OR_BRANCH $BRANCH_LINK was pushed by $USER_LINK"
+  #text="[$REPO_LINK] New $TAG_OR_BRANCH $BRANCH_LINK was pushed by $USER_LINK"
+  text="New $TAG_OR_BRANCH $BRANCH_LINK was pushed by $USER_LINK"
 elif [ "$NEWREV" = "$NULLREV" ]; then
   pretext=''   # Single line, no color
   #pretext=' ' # Force line break, include color
-  text="[$REPO_LINK] The $TAG_OR_BRANCH $BRANCH_LINK was deleted by $USER_LINK"
+  #text="[$REPO_LINK] The $TAG_OR_BRANCH $BRANCH_LINK was deleted by $USER_LINK"
+  text="The $TAG_OR_BRANCH $BRANCH_LINK was deleted by $USER_LINK"
 else
   count=`$GIT_EXEC log --pretty=oneline $OLDREV..$NEWREV | wc -l | tr -d ' '`
   if [ $count -eq 1 ]; then plural=''; else plural='s'; fi
-  pretext="[$REPO_LINK:$BRANCH_LINK] $count new commit$plural by $USER_LINK:"
+  #pretext="[$REPO_LINK:$BRANCH_LINK] $count new commit$plural by $USER_LINK:"
+  pretext="[$BRANCH_LINK] $count new commit$plural by $USER_LINK:"
   if [ -n "$GITWEB" ]; then
     h="<a href=\"http://$GITWEB/?p=$REPO;a=commitdiff;h=%H\">%h</a>"
   elif [ -n "$CGIT" ]; then
