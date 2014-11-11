@@ -65,6 +65,9 @@ elif [ "$NEWREV" = "$NULLREV" ]; then
 
 else
 
+  # Suppress
+  exit 0
+
   # Commits pushed to existing branch
   count=`$GIT_EXEC log --pretty=oneline $OLDREV..$NEWREV | wc -l | tr -d ' '`
   if [ $count -eq 1 ]; then plural=''; else plural='s'; fi
