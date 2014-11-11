@@ -48,16 +48,24 @@ fi
 
 # Construct message
 if [ "$OLDREV" = "$NULLREV" ]; then
+
+  # Tag or branch created
   pretext=''   # Single line, no color
   #pretext=' ' # Force line break, include color
   #text="[$REPO_LINK] New $TAG_OR_BRANCH $BRANCH_LINK was pushed by $USER_LINK"
-  text="New $TAG_OR_BRANCH $BRANCH_LINK was pushed by $USER_LINK"
+  text="New $TAG_OR_BRANCH $BRANCH_LINK was created by $USER_LINK"
+
 elif [ "$NEWREV" = "$NULLREV" ]; then
+
+  # Tag or branch deleted
   pretext=''   # Single line, no color
   #pretext=' ' # Force line break, include color
   #text="[$REPO_LINK] The $TAG_OR_BRANCH $BRANCH_LINK was deleted by $USER_LINK"
   text="The $TAG_OR_BRANCH $BRANCH_LINK was deleted by $USER_LINK"
+
 else
+
+  # Commits pushed to existing branch
   count=`$GIT_EXEC log --pretty=oneline $OLDREV..$NEWREV | wc -l | tr -d ' '`
   if [ $count -eq 1 ]; then plural=''; else plural='s'; fi
   #pretext="[$REPO_LINK:$BRANCH_LINK] $count new commit$plural by $USER_LINK:"
@@ -77,6 +85,7 @@ else
   elif [ -n "$JIRA" ]; then
     text=`echo -e "$text" | sed "s/\([A-Z]\{2,\}\-[0-9]\{1,\}\)/<a href=\"http:\/\/$JIRA\/browse\/\1\">\1<\/a>/g"`
   fi
+
 fi
 
 text="$(echo -e "$text" | perl -p -e 's/\n/\\\\n/mg')" # WARNING: `...` doesn't capture newlines properly here; must use $(...)
